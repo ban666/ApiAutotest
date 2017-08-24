@@ -5,23 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 import xlsxwriter
 from datetime import datetime
-# url='http://wh.lianjia.com/ershoufang/donghugaoxin/p4/l3/pg1/'
-# url='https://m.lianjia.com/wh/ershoufang/donghugaoxin/p4/l3/co32l3p4/pg1/'
-# a = requests.get(url)
-# html = a.content
-# print html
-# lj=BeautifulSoup(html,'html.parser')
-#
-# house_info = lj.find_all('li',attrs={'class':'pictext'})
-#
-# for house in house_info:
-#     print house.find_all('div',attrs={'class':'item_other text_cut'})[0].text
-#     print house.find_all('span',attrs={'class':'price_total'})[0].text
-#     print house.find_all('span',attrs={'class':'unit_price'})[0].text
-#     print house.find_all('a',attrs={'class':'a_mask'})[0].href
-#     for tag in house.find_all('div',attrs={'class':'tag_box'}):
-#         print tag.text
-#     pass
+
 
 class LjSpider:
 
@@ -72,27 +56,20 @@ class LjSpider:
         wb = xlsxwriter.Workbook(fname)
         ws = wb.add_worksheet()
         data = [x for x in data if not isinstance(x,type(None))]
-        # columnlist=[u'memberid',u'nick_name',u'truename',u'mobile',u'email',u'gender',u'address']
         unit_size = len(data[0])
         ws.set_column(0,unit_size,22)
-        #column
-        # for i in range(unit_size):
-        #     ws.write(0,i,columnlist[i])
-
         for i in range(len(data)):
             for j in range(unit_size):
-                #print data[i][j]
                 content = self.ensure_writeble(data[i][j])
-                # print 'c,',content
                 ws.write(i+1,j,content)
         wb.close()
 
     def ensure_writeble(self,content):
         try:
-            # content = content.encode('utf-8')
             content = content.decode('utf-8')
         except:
             pass
         return content
+    
 if __name__ == '__main__':
     LjSpider(10).start()
