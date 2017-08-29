@@ -7,11 +7,12 @@ import xlsxwriter
 from datetime import datetime
 from lj_db import Db
 from lj_models import *
+from lj_charts import Charts
 
 class LjSpider:
 
     def __init__(self,crawl_page=10,region='donghugaoxin',price='p4',room='l3',
-                 order='co32l3p4',url='https://m.lianjia.com/wh/ershoufang',*args):
+                 order='co32l3p4',url='https://wh.lianjia.com/ershoufang',*args):
         self.region = region
         self.price = price
         self.room = room
@@ -19,21 +20,20 @@ class LjSpider:
         self.crwal_page = crawl_page
         self.folder = 'g:/ljdata/'
         self.db = Db()
-        # self.url='https://m.lianjia.com/wh/ershoufang/%s/%s/%s/%s/pg%s/'
         self.url= url
         map_list = [self.region,self.price,self.order]
         map_list.extend(args)
         map(self.url_generate,map_list)
         self.url +='/pg%s/'
         self.result = []
+        self.count = 0
         self.headers = {
             'User-Agent':'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
             'Accept':'text/html;q=0.9,*/*;q=0.8',
             'Accept-Charset':'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
             'Accept-Encoding':'gzip',
             'Connection':'close',
-            'Referer':'http://www.baidu.com/link?url=_andhfsjjjKRgEWkj7i9cFmYYGsisrnm2A-TN3XZDQXxvGsM9k9ZZSnikW2Yds4s&amp;amp;wd=&amp;amp;eqid=c3435a7d00006bd600000003582bfd1f'
-        }
+         }
 
     def url_generate(self,content):
         if content:
@@ -45,22 +45,23 @@ class LjSpider:
 
     def content_handler(self,html):
         lj=BeautifulSoup(html,'html.parser')
-        house_info = lj.find_all('li',attrs={'class':'pictext'})
+        house_info = lj.find_all('li',attrs={'class':'clear'})
+        print len(house_info)
         result = []
         for house in house_info:
-            base_info = house.find_all('div',attrs={'class':'item_other text_cut'})[0].text
-            room_type,room_size,room_way,xiaoqu_name = base_info.split('/')
-            total = house.find_all('span',attrs={'class':'price_total'})[0].text.strip(u'万')
-            unit = house.find_all('span',attrs={'class':'unit_price'})[0].text.strip(u'元/平')
-            mask = house.find_all('a',attrs={'class':'a_mask'})[0].get('href')
-            tags = ''
+            base_info = house.find_all('div',attrs={'class':'houseInfo'})[0].text
+            xiaoqu_name,room_type,room_size,room_way = base_info.split('|')[:4]
+            # xiaoqu_name = base_info.find_all('a')[0].text
+            total = house.find_all('div',attrs={'class':'totalPrice'})[0].text.replace(u'万','')
+            unit = house.find_all('div',attrs={'class':'unitPrice'})[0].get('data-price')
+            mask = house.find_all('div',attrs={'class':'title'})[0].find_all('a')[0].get('href')
+            tags = house.find_all('div',attrs={'class':'tag'})[0].text
             for tag in house.find_all('div',attrs={'class':'tag_box'}):
                 tags = tags + tag.text + ','
             tags = tags.replace('\n','')
             tags = tags[:-1]
             ret = [mask,xiaoqu_name,room_type,room_size,room_way,total,unit,tags]
-            for r in ret:
-                print r
+            ret = [x.strip() for x in ret]
             # self.result.append(ret)
             result.append(ret)
         return result
@@ -68,15 +69,17 @@ class LjSpider:
     def start(self,save='excel'):
         for i in range(self.crwal_page):
             url = self.url % (str(i+1))
+            print 'start cwal url:',url
             ret = self.crwal(url)
             for r in ret:
                 self.result.append(r)
+            print len(self.result)
         if save == 'excel':
             self.write_to_excel(self.result)
         elif save == 'db':
             self.write_to_sql(self.result)
         elif save == 'chart':
-            self.draw(self.result)
+            self.draw()
 
     def write_to_excel(self,data):
         import os
@@ -100,12 +103,13 @@ class LjSpider:
             temp_dict = {}
             for i in range(len(d)):
                 temp_dict[temp_list[i]] = d[i]
-            house = Information(**temp_dict)
-            self.db.merge(house)
+            house_web_info = InformationWeb(**temp_dict)
+            self.db.merge(house_web_info)
+            self.count+=1
             self.db.commit()
+        print self.count
 
-    @staticmethod
-    def ensure_writeble(content):
+    def ensure_writeble(self,content):
         try:
             content = content.decode('utf-8')
         except:
@@ -113,8 +117,8 @@ class LjSpider:
         return content
 
     def draw(self):
-        pass
-
+        chart = Charts(['Nov', 'Dec', 'Jan', 'Feb'], [2, 10, 4, 5])
+        chart.draw()
 
 if __name__ == '__main__':
-    LjSpider(1,price='').start('db')
+    LjSpider(60,price='',order='').start('db')
